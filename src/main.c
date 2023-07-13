@@ -7,22 +7,22 @@
 #include <math.h>
 #include <limits.h>
 
-#define WINDOW_WIDTH    800
-#define WINDOW_HEIGHT   600
+#define WINDOW_WIDTH            800
+#define WINDOW_HEIGHT           600
 
-#define MAP_NUM_ROWS 11
-#define MAP_NUM_COLS 15
+#define MAP_NUM_ROWS            11
+#define MAP_NUM_COLS            15
 
-#define TILE_SIZE 32
-#define MINIMAP_SCALE_FACTOR 0.6
+#define TILE_SIZE               32
+#define MINIMAP_SCALE_FACTOR    0.6
 
-#define FPS 30
-#define FRAME_TIME_LENGTH (1000 / FPS)
+#define FPS                     30
+#define FRAME_TIME_LENGTH       (1000 / FPS)
 
-#define PI 3.14159
+#define PI                      3.14159
 
-#define WALL_STRIP_WIDTH 10
-#define NUM_RAYS (WINDOW_WIDTH / WALL_STRIP_WIDTH)
+#define WALL_STRIP_WIDTH        10
+#define NUM_RAYS                WINDOW_WIDTH
 
 float FOV_ANGLE = 60 * (PI / 180);
 
@@ -93,13 +93,20 @@ void render3DProjectedWalls() {
 
         float wallStripHeight = (TILE_SIZE / rayDistance) * distanceToProjectionPlane;
 
-        draw_unfilled_rect(
-            i * WALL_STRIP_WIDTH,
-            (WINDOW_HEIGHT / 2) - (wallStripHeight / 2),
-            WALL_STRIP_WIDTH,
-            wallStripHeight,
-            0xffffffff
-        );
+        int wallTopPixel = (WINDOW_HEIGHT / 2) - (wallStripHeight / 2);
+        wallTopPixel = wallTopPixel < 0 ? 0 : wallTopPixel;
+
+        int wallBottomPixel = (WINDOW_HEIGHT / 2) + (wallStripHeight / 2);
+        wallBottomPixel = wallBottomPixel > WINDOW_HEIGHT ? WINDOW_HEIGHT : wallBottomPixel;
+
+        for (int y = wallTopPixel; y < wallBottomPixel; y++) {
+            frame_buffer[(WINDOW_WIDTH * y) + i] = ray.wasHitVertical ? 0xFFFFFFFF : 0xFFCCCCCC;
+        }
+
+        //draw floor 
+        for(int y = wallBottomPixel; y < WINDOW_HEIGHT; y++)  {
+            frame_buffer[(WINDOW_WIDTH * y) + i] = 0xffff0000;
+        }
     }
 }
 
@@ -107,9 +114,21 @@ float distanceBetweenPoints(float x1, float y1, float x2, float y2) {
     return sqrt( ((x2 - x1) * (x2 - x1)) + ((y2 - y1) * (y2 - y1)) );
 }
 
+float normalizeAngle(float angle) {
+    if(angle > (2* PI)) {
+        angle = angle - PI;
+    }
+
+    if(angle < 0) {
+        angle = (2 * PI) + angle;
+    }
+
+    return angle;
+}
+
 struct Ray* cast(struct Ray* ray, float rayAngle) {
 
-    ray->rayAngle = rayAngle;
+    ray->rayAngle = normalizeAngle(rayAngle);
 
     ray->isRayFacingDown = rayAngle > 0 && rayAngle < PI;
     ray->isRayFacingUp = !ray->isRayFacingDown;
@@ -370,9 +389,9 @@ void playerSetup(void) {
     player.yPos = WINDOW_HEIGHT / 2;
     player.width = 10;
     player.height = 10;
-    player.moveSpeed = 2.0f;
+    player.moveSpeed = 8.0f;
     player.rotationAngle = PI / 2;
-    player.rotationSpeed = (PI / 180) * 2;
+    player.rotationSpeed = (PI / 180) * 8;
     player.walkDirection = 0;
     player.turnDirection = 0;
 }
@@ -454,7 +473,7 @@ bool checkCollision(float xPos, float yPos) {
 void update_player(float deltaTime) {
 
     player.rotationAngle += player.turnDirection * player.rotationSpeed * deltaTime;
-    int moveStep = player.walkDirection * player.moveSpeed * deltaTime;
+    float moveStep = player.walkDirection * player.moveSpeed * deltaTime;
 
     // player.xPos = player.xPos + cos(player.rotationAngle) * moveStep;
     // player.yPos = player.yPos + sin(player.rotationAngle) * moveStep;
