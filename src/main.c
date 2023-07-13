@@ -1,11 +1,11 @@
 
-#include <SDL2/SDL.h>
-
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <math.h>
 #include <limits.h>
+
+#include <SDL2/SDL.h>
 
 #define WINDOW_WIDTH            800
 #define WINDOW_HEIGHT           600
@@ -20,11 +20,10 @@
 #define FRAME_TIME_LENGTH       (1000 / FPS)
 
 #define PI                      3.14159
+#define FOV_ANGLE               (60 * (PI / 180))
 
 #define WALL_STRIP_WIDTH        10
 #define NUM_RAYS                WINDOW_WIDTH
-
-float FOV_ANGLE = 60 * (PI / 180);
 
 #define FRAME_BUFFER_SIZE_BYTES (sizeof(uint32_t) * (WINDOW_WIDTH * WINDOW_HEIGHT))
 
@@ -87,18 +86,20 @@ void render3DProjectedWalls() {
     for(int i = 0; i < NUM_RAYS; i++) {
         struct Ray ray = ray_array[i];
 
-        float rayDistance = ray.distance;
+        float rayDistance = ray.distance * cos(ray.rayAngle - player.rotationAngle);
 
         float distanceToProjectionPlane = (WINDOW_WIDTH / 2) / tan(FOV_ANGLE);
 
         float wallStripHeight = (TILE_SIZE / rayDistance) * distanceToProjectionPlane;
 
-        int wallTopPixel = (WINDOW_HEIGHT / 2) - (wallStripHeight / 2);
+        unsigned int wallTopPixel = (WINDOW_HEIGHT / 2) - (wallStripHeight / 2);
         wallTopPixel = wallTopPixel < 0 ? 0 : wallTopPixel;
 
-        int wallBottomPixel = (WINDOW_HEIGHT / 2) + (wallStripHeight / 2);
+        //debugging found this value overflowed at any other resolution than 800x600, needs investigation
+        unsigned int wallBottomPixel = (WINDOW_HEIGHT / 2) + (wallStripHeight / 2);
         wallBottomPixel = wallBottomPixel > WINDOW_HEIGHT ? WINDOW_HEIGHT : wallBottomPixel;
 
+        //draw walls
         for (int y = wallTopPixel; y < wallBottomPixel; y++) {
             frame_buffer[(WINDOW_WIDTH * y) + i] = ray.wasHitVertical ? 0xFFFFFFFF : 0xFFCCCCCC;
         }
@@ -110,7 +111,7 @@ void render3DProjectedWalls() {
     }
 }
 
-float distanceBetweenPoints(float x1, float y1, float x2, float y2) {
+float distanceBetweenPoints(double x1, double y1, double x2, double y2) {
     return sqrt( ((x2 - x1) * (x2 - x1)) + ((y2 - y1) * (y2 - y1)) );
 }
 
@@ -263,6 +264,7 @@ struct Ray* cast(struct Ray* ray, float rayAngle) {
 void castAllRays() {
 
     float rayAngle = player.rotationAngle - (FOV_ANGLE / 2);
+    float rayAngleIncrement = FOV_ANGLE / NUM_RAYS;
 
     for(int i = 0; i < NUM_RAYS; i++) {
 
@@ -272,11 +274,7 @@ void castAllRays() {
 
         ray_array[i] = *ray;
 
-        // cast(rayAngle, i);
-
-        rayAngle += FOV_ANGLE / NUM_RAYS;
-
-        // columnID++;
+        rayAngle += rayAngleIncrement;
     }
 }
 
@@ -389,15 +387,15 @@ void playerSetup(void) {
     player.yPos = WINDOW_HEIGHT / 2;
     player.width = 10;
     player.height = 10;
-    player.moveSpeed = 8.0f;
+    player.moveSpeed = 10.0f;
     player.rotationAngle = PI / 2;
-    player.rotationSpeed = (PI / 180) * 8;
+    player.rotationSpeed = (PI / 180) * 60;
     player.walkDirection = 0;
     player.turnDirection = 0;
 }
 
 void raySetup(void) {
-    ray_array = malloc(sizeof(struct Ray) * NUM_RAYS);
+    ray_array = (struct Ray*)malloc(sizeof(struct Ray) * NUM_RAYS);
 }
 
 void setup(void) {
@@ -454,8 +452,6 @@ void process_input(void) {
                 player.turnDirection = 0;
             break;
         }
-        default:
-            break;
     }
 }
 
@@ -474,9 +470,6 @@ void update_player(float deltaTime) {
 
     player.rotationAngle += player.turnDirection * player.rotationSpeed * deltaTime;
     float moveStep = player.walkDirection * player.moveSpeed * deltaTime;
-
-    // player.xPos = player.xPos + cos(player.rotationAngle) * moveStep;
-    // player.yPos = player.yPos + sin(player.rotationAngle) * moveStep;
 
     float newPlayerX = player.xPos + cos(player.rotationAngle) * moveStep;
     float newPlayerY = player.yPos + sin(player.rotationAngle) * moveStep;
@@ -503,10 +496,7 @@ void render(void) {
     SDL_RenderClear(renderer);
     clear_framebuffer();
 
-    // draw_pixel(400, 300, 0xffff0000);
     draw_minimap();
-    // draw_unfilled_rect(100, 100, 50, 50, 0xffff0000);
-    // draw_rect(playerX, playerY, 10, 10, 0xffff00ff);
 
     draw_rect(
         MINIMAP_SCALE_FACTOR * player.xPos, 
@@ -518,7 +508,6 @@ void render(void) {
     render3DProjectedWalls();
 
     render_frame_buffer();
-    // free_framebuffer();
     SDL_RenderPresent(renderer);
 }
 
