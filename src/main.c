@@ -37,8 +37,23 @@ bool program_running;
 
 int ticksLastFrame = 0;
 
-int playerX = 0;
-int playerY = 0;
+/**
+ * The below values are from early in development when I was esting player movement on the screen.
+ * I never removed them or used them for anything since assuming they would have no effect.
+ * 
+ * Oh boy, was I wrong. When these two bad boys are initialized to 0 they cause a super weird
+ * visual effect when you attempt to move the player forward - a space opens up between the walls
+ * right in the centre of the screen. 
+ * 
+ * They aren't referenced anywhere in the code and so I'm guessing this is some weird memory
+ * initialization issue. Also I will note I have only produced this bug on macOS 12.6.7 because
+ * who knows, maybe this is an OS specific bug. I guess time will tell :D
+ * 
+ * This needs further investigation and I just want to document this bug for my own sanity.
+ */
+
+// int playerX = 0;
+// int playerY = 0;
 
 int minimap_array[11][15] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -95,16 +110,16 @@ void render3DProjectedWalls() {
         unsigned int wallTopPixel = (WINDOW_HEIGHT / 2) - (wallStripHeight / 2);
         wallTopPixel = wallTopPixel < 0 ? 0 : wallTopPixel;
 
-        //debugging found this value overflowed at any other resolution than 800x600, needs investigation
+        // debugging found this value overflowed at any other resolution than 800x600, needs investigation
         unsigned int wallBottomPixel = (WINDOW_HEIGHT / 2) + (wallStripHeight / 2);
         wallBottomPixel = wallBottomPixel > WINDOW_HEIGHT ? WINDOW_HEIGHT : wallBottomPixel;
 
-        //draw walls
+        // draw walls
         for (int y = wallTopPixel; y < wallBottomPixel; y++) {
             frame_buffer[(WINDOW_WIDTH * y) + i] = ray.wasHitVertical ? 0xFFFFFFFF : 0xFFCCCCCC;
         }
 
-        //draw floor 
+        // draw floor 
         for(int y = wallBottomPixel; y < WINDOW_HEIGHT; y++)  {
             frame_buffer[(WINDOW_WIDTH * y) + i] = 0xffff0000;
         }
@@ -154,27 +169,27 @@ struct Ray* cast(struct Ray* ray, float rayAngle) {
     // Check if angle is facing down, if so add TILE_SIZE (32) to original yintercept, else add nothing (0)
     yintercept += ray->isRayFacingDown ? TILE_SIZE : 0;
 
-    //current player xpos + length of the adjacent side of the triangle 
+    // current player xpos + length of the adjacent side of the triangle 
     xintercept = player.xPos + ((yintercept - player.yPos) / tan(ray->rayAngle));
 
     // Calculate the increment for xstep and ystep
     ystep = TILE_SIZE;
 
-    //if ray is facing up, subtract 32 for each increment of ystep, if facing down, add 32 for each increment
+    // if ray is facing up, subtract 32 for each increment of ystep, if facing down, add 32 for each increment
     ystep *= ray->isRayFacingUp ? -1 : 1;
 
     xstep = TILE_SIZE / tan(rayAngle);
 
-    //if result of xstep is positive, but angle is left, set xstep to be negative
+    // if result of xstep is positive, but angle is left, set xstep to be negative
     xstep *= (ray->isRayFacingLeft && xstep > 0) ? -1 : 1;
 
-    //if result of xstep is negative, but angle is right, set xstep to be positive
+    // if result of xstep is negative, but angle is right, set xstep to be positive
     xstep *= (ray->isRayFacingRight && xstep <  0) ? -1 : 1;
 
     float nextHorizontalTouchX = xintercept;
     float nextHorizontalTouchY = yintercept;
 
-    //Increment xstep and ystep until we find a wall
+    // Increment xstep and ystep until we find a wall
 
     while(nextHorizontalTouchX >= 0 && nextHorizontalTouchX <= WINDOW_WIDTH && nextHorizontalTouchY >=0 && nextHorizontalTouchY <= WINDOW_HEIGHT) {
         if(checkCollision(nextHorizontalTouchX, nextHorizontalTouchY - (ray->isRayFacingUp ? 1 : 0))) {
@@ -212,15 +227,15 @@ struct Ray* cast(struct Ray* ray, float rayAngle) {
 
     xstep = TILE_SIZE;
 
-    //set xstep to positive 32 if the ray is facing right, and negative 32 if the ray is facing left
+    // set xstep to positive 32 if the ray is facing right, and negative 32 if the ray is facing left
     xstep *= ray->isRayFacingRight ? 1 : -1;
 
     ystep = TILE_SIZE * tan(ray->rayAngle);
 
-    //if result of ystep is positive, but angle is up, set ystep to be negative
+    // if result of ystep is positive, but angle is up, set ystep to be negative
     ystep *= (ray->isRayFacingUp && ystep > 0) ? -1 : 1;
 
-    //if result of ystep is negative, but angle is down set ystep to be positive
+    // if result of ystep is negative, but angle is down set ystep to be positive
     ystep *= (ray->isRayFacingDown && ystep <  0) ? -1 : 1;
 
     float nextVerticalTouchX = xintercept;
@@ -255,7 +270,7 @@ struct Ray* cast(struct Ray* ray, float rayAngle) {
     ray->wallHitY = (horizontalHitDistance < verticalHitDistance) ? horizontalWallHitY : verticalWallHitY;
     ray->distance = (horizontalHitDistance < verticalHitDistance) ? horizontalHitDistance : verticalHitDistance;
 
-    //hit was vertical only if vertical distance was less than horizontal distance
+    // hit was vertical only if vertical distance was less than horizontal distance
     ray->wasHitVertical = (verticalHitDistance < horizontalHitDistance);
 
     return ray;
